@@ -62,7 +62,7 @@ export default function GameCanvas({ onExit, onClear }: Props) {
           this.ledge(420, -2775, 420, 44, -7, 0x69807c);
           this.add.text(310, -2865, "▲  SUMMIT  ▲", { fontFamily: "monospace", fontSize: "24px", color: "#f3d083" });
           const zone = this.add.zone(420, -2840, 360, 120); this.matter.add.gameObject(zone, { isStatic: true, isSensor: true, label: "summit" });
-          this.matter.world.on("collisionstart", (event: { pairs: MatterJS.Pair[] }) => { for (const pair of event.pairs) { if ((pair.bodyA.label === "summit" || pair.bodyB.label === "summit") && !this.cleared && (pair.bodyA === this.player.body || pair.bodyB === this.player.body)) { this.cleared = true; const time = Math.floor(performance.now() - this.startAt); this.game.events.emit("stage-clear", time); } } });
+          this.matter.world.on("collisionstart", (event: MatterJS.IEventCollision<MatterJS.Engine>) => { for (const pair of event.pairs) { if ((pair.bodyA.label === "summit" || pair.bodyB.label === "summit") && !this.cleared && (pair.bodyA === this.player.body || pair.bodyB === this.player.body)) { this.cleared = true; const time = Math.floor(performance.now() - this.startAt); this.game.events.emit("stage-clear", time); } } });
         }
         update() {
           if (!this.player || this.cleared) return;
