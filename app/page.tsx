@@ -8,6 +8,7 @@ import { formatTime, type LeaderboardRow } from "@/lib/types";
 
 const GameCanvas = dynamic(() => import("@/components/GameCanvas"), { ssr: false });
 type View = "home" | "login" | "signup" | "game";
+type AuthView = Exclude<View, "game">;
 
 export default function Home() {
   const configured = isSupabaseConfigured();
@@ -63,7 +64,10 @@ export default function Home() {
 
   if (!configured) return <SetupNotice />;
   if (loading) return <main className="center"><div className="loader" /><p>베이스캠프 준비 중…</p></main>;
-  if (!session) return <AuthScreen view={view} setView={setView} />;
+  if (!session) {
+    const authView: AuthView = view === "game" ? "home" : view;
+    return <AuthScreen view={authView} setView={setView} />;
+  }
   if (view === "game") return <GameCanvas onExit={() => { setView("home"); setClearResult(null); }} onClear={saveClear} />;
 
   return (
@@ -96,7 +100,7 @@ function SetupNotice() {
   return <main className="center"><Brand /><section className="auth-card"><p className="eyebrow">SETUP REQUIRED</p><h2>Supabase 연결이 필요합니다</h2><p><code>.env.example</code>을 <code>.env.local</code>로 복사하고 프로젝트 값을 입력하세요.</p><p>자세한 순서는 README의 설정 가이드를 확인하세요.</p></section></main>;
 }
 
-function AuthScreen({ view, setView }: { view: View; setView: (v: View) => void }) {
+function AuthScreen({ view, setView }: { view: AuthView; setView: (v: AuthView) => void }) {
   if (view === "home") return <main className="landing"><nav><Brand /><span>PHYSICS CLIMBING EXPERIMENT</span></nav><section><p className="eyebrow">A VERTICAL JOURNEY</p><h1>흔들려도<br /><em>올라간다.</em></h1><p>중력과 관성, 단 하나의 자석 곡괭이.<br />당신만의 방식으로 폐허의 정상을 정복하세요.</p><div className="actions"><button className="primary" onClick={() => setView("login")}>로그인</button><button className="secondary" onClick={() => setView("signup")}>회원가입</button></div></section><div className="landing-art"><div className="sun"/><div className="peak p1"/><div className="peak p2"/><div className="capsule">●<i /></div></div></main>;
   return <AuthForm mode={view} goBack={() => setView("home")} switchMode={() => setView(view === "login" ? "signup" : "login")} />;
 }
