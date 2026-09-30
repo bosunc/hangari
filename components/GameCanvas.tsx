@@ -24,7 +24,8 @@ export default function GameCanvas({ onExit, onClear }: Props) {
     let active = true;
     async function boot() {
       const Phaser = (await import("phaser")).default;
-      if (!host.current || !active) return;
+      const parent = host.current;
+      if (!parent || !active) return;
       class ClimbScene extends Phaser.Scene {
         player!: Phaser.Physics.Matter.Image;
         tool!: Phaser.Physics.Matter.Image;
@@ -85,7 +86,20 @@ export default function GameCanvas({ onExit, onClear }: Props) {
           this.game.events.emit("hud", Math.floor(performance.now() - this.startAt), climbed);
         }
       }
-      const instance = new Phaser.Game({ type: Phaser.AUTO, parent: host.current, width: 800, height: 600, backgroundColor: "#101a21", physics: { default: "matter", matter: { gravity: { y: 1.05 }, debug: false } }, scene: ClimbScene, scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH } });
+      const config: Phaser.Types.Core.GameConfig = {
+        type: Phaser.AUTO,
+        parent,
+        width: 800,
+        height: 600,
+        backgroundColor: "#101a21",
+        physics: {
+          default: "matter",
+          matter: { gravity: { x: 0, y: 1.05 }, debug: false },
+        },
+        scene: ClimbScene,
+        scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+      };
+      const instance = new Phaser.Game(config);
       instance.events.on("hud", (time: number, h: number) => { setElapsed(time); setHeight(h); });
       instance.events.once("stage-clear", async (time: number) => { setElapsed(time); setSaving(true); try { const result = await onClear(time); setClear({ time, ...result }); } catch { setError("기록 저장에 실패했습니다. 연결을 확인하세요."); } finally { setSaving(false); } });
       game.current = instance;
