@@ -5,6 +5,11 @@ import { formatTime } from "@/lib/types";
 
 type ClearResult = { best: number; rank: number | null };
 type Props = { onExit: () => void; onClear: (time: number) => Promise<ClearResult> };
+type LabeledMatterBody = MatterJS.Body & { label: string };
+
+function hasBodyLabel(body: MatterJS.Body): body is LabeledMatterBody {
+  return "label" in body && typeof body.label === "string";
+}
 
 export default function GameCanvas({ onExit, onClear }: Props) {
   const host = useRef<HTMLDivElement>(null);
@@ -19,7 +24,8 @@ export default function GameCanvas({ onExit, onClear }: Props) {
     let active = true;
     async function boot() {
       const Phaser = (await import("phaser")).default;
-      if (!host.current || !active) return;
+      const parent = host.current;
+      if (!parent || !active) return;
       class ClimbScene extends Phaser.Scene {
         player!: Phaser.Physics.Matter.Image;
         tool!: Phaser.Physics.Matter.Image;
@@ -62,7 +68,17 @@ export default function GameCanvas({ onExit, onClear }: Props) {
           this.ledge(420, -2775, 420, 44, -7, 0x69807c);
           this.add.text(310, -2865, "▲  SUMMIT  ▲", { fontFamily: "monospace", fontSize: "24px", color: "#f3d083" });
           const zone = this.add.zone(420, -2840, 360, 120); this.matter.add.gameObject(zone, { isStatic: true, isSensor: true, label: "summit" });
-          this.matter.world.on("collisionstart", (event: { pairs: MatterJS.Pair[] }) => { for (const pair of event.pairs) { if ((pair.bodyA.label === "summit" || pair.bodyB.label === "summit") && !this.cleared && (pair.bodyA === this.player.body || pair.bodyB === this.player.body)) { this.cleared = true; const time = Math.floor(performance.now() - this.startAt); this.game.events.emit("stage-clear", time); } } });
+          this.matter.world.on("collisionstart", (event: MatterJS.IEventCollision<MatterJS.Engine>) => {
+            for (const pair of event.pairs) {
+              const { bodyA, bodyB } = pair;
+              if (!hasBodyLabel(bodyA) || !hasBodyLabel(bodyB)) continue;
+              if ((bodyA.label === "summit" || bodyB.label === "summit") && !this.cleared && (bodyA === this.player.body || bodyB === this.player.body)) {
+                this.cleared = true;
+                const time = Math.floor(performance.now() - this.startAt);
+                this.game.events.emit("stage-clear", time);
+              }
+            }
+          });
         }
         update() {
           if (!this.player || this.cleared) return;
@@ -70,7 +86,20 @@ export default function GameCanvas({ onExit, onClear }: Props) {
           this.game.events.emit("hud", Math.floor(performance.now() - this.startAt), climbed);
         }
       }
-      const instance = new Phaser.Game({ type: Phaser.AUTO, parent: host.current, width: 800, height: 600, backgroundColor: "#101a21", physics: { default: "matter", matter: { gravity: { y: 1.05 }, debug: false } }, scene: ClimbScene, scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH } });
+      const config: Phaser.Types.Core.GameConfig = {
+        type: Phaser.AUTO,
+        parent,
+        width: 800,
+        height: 600,
+        backgroundColor: "#101a21",
+        physics: {
+          default: "matter",
+          matter: { gravity: { x: 0, y: 1.05 }, debug: false },
+        },
+        scene: ClimbScene,
+        scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+      };
+      const instance = new Phaser.Game(config);
       instance.events.on("hud", (time: number, h: number) => { setElapsed(time); setHeight(h); });
       instance.events.once("stage-clear", async (time: number) => { setElapsed(time); setSaving(true); try { const result = await onClear(time); setClear({ time, ...result }); } catch { setError("기록 저장에 실패했습니다. 연결을 확인하세요."); } finally { setSaving(false); } });
       game.current = instance;
